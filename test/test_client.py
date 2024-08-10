@@ -5,7 +5,7 @@ from vital_agent_container_client.vital_agent_container_client import VitalAgent
 
 class LocalMessageHandler(AIMPMessageHandlerInf):
     async def receive_message(self, message):
-        print("Received message:", message)
+        print(f"Local Handler Received message: {message}")
 
 
 async def main():
@@ -13,6 +13,7 @@ async def main():
     print('Test Vital Agent Container Client')
 
     handler = LocalMessageHandler()
+
     client = VitalAgentContainerClient("http://localhost:6006", handler)
 
     health = await client.check_health()
@@ -21,22 +22,18 @@ async def main():
     await client.open_websocket()
 
     # Start receiving messages in the background
-    receive_task = asyncio.create_task(client.receive_messages())
+    # receive_task = asyncio.create_task(client.receive_messages())
 
-    await client.send_message({"type": "greeting", "content": "Hello, WebSocket!"})
+    message = [{"type": "greeting", "content": "Hello, WebSocket!"}]
+
+    await client.send_message(message)
+
+    await client.wait_for_close_or_timeout(60)
 
     # Wait for some time to receive messages
-    await asyncio.sleep(10)
+    # await asyncio.sleep(10)
 
     await client.close_websocket()
-
-    # Cancel the receive task
-    receive_task.cancel()
-    try:
-        await receive_task
-    except asyncio.CancelledError:
-        pass
-
 
 if __name__ == "__main__":
 
