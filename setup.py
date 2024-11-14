@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='vital-agent-container-client',
-    version='0.0.3',
+    version='0.0.5',
     author='Marc Hadfield',
     author_email='marc@vital.ai',
     description='Vital Agent Container Client',
@@ -12,7 +12,7 @@ setup(
     packages=find_packages(exclude=["test"]),
     license='Apache License 2.0',
     install_requires=[
-            'vital-ai-vitalsigns>=0.1.19',
+            'vital-ai-vitalsigns>=0.1.23',
             'vital-ai-domain>=0.1.7',
             'six',
             'pyyaml',

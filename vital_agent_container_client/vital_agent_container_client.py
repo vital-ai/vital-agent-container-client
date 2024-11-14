@@ -3,6 +3,7 @@ import httpx
 import websockets
 import json
 from vital_agent_container_client.aimp_message_handler_inf import AIMPMessageHandlerInf
+import logging
 
 
 class VitalAgentContainerClient:
@@ -35,21 +36,26 @@ class VitalAgentContainerClient:
         await self.websocket.wait_closed()
 
     async def wait_for_close_or_timeout(self, timeout):
+        logger = logging.getLogger()
+
         try:
             await asyncio.wait_for(asyncio.gather(self.receive_messages(), self.websocket.wait_closed()), timeout)
         except asyncio.TimeoutError:
             # print(f"Timeout of {timeout} seconds reached, no close event detected.")
+            logger.error(f"Websocket Timeout: {timeout} seconds.")
             # Handle the timeout scenario if needed
             pass
 
     async def receive_messages(self):
+        logger = logging.getLogger()
+
         if self.websocket:
             try:
                 async for message in self.websocket:
-                    print(f"Received message: {message}")
+                    logger.info(f"Websocket Received message: {message}")
                     data = json.loads(message)
                     await self.handler.receive_message(data)
             except websockets.exceptions.ConnectionClosed as e:
-                print(f"Connection closed with code {e.code}: {e.reason}")
+                logger.info(f"Websocket connection closed with code {e.code}: {e.reason}")
         else:
             raise ConnectionError("WebSocket is not connected.")
