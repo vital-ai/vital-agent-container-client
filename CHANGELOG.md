@@ -32,6 +32,8 @@ Pin the client and the server versions and upgrade them together.
 - `http://` / `https://` base URLs map to `ws://` / `wss://` by scheme only (hostnames
   containing "http" were mangled before).
 - Packaging moved to `pyproject.toml`.
+- Dependencies: `vital-ai-vitalsigns>=0.1.55` and `vital-ai-domain>=0.1.9` (were `>=0.1.32` and
+  `>=0.1.7`); `websockets>=14.0` and `httpx>=0.28.0` now have minimum versions.
 
 ### Removed
 
@@ -44,8 +46,8 @@ Pin the client and the server versions and upgrade them together.
   | `send_message(m)` + `wait_for_close_or_timeout(t)` | `request(m, timeout=t, close_after=True)` |
   | `close_websocket()` | `close()` (graceful) or `disconnect()` |
 
-- Dependencies that the package never imported: `vital-ai-vitalsigns`, `vital-ai-domain`,
-  `six`, `pyyaml`. Install them directly if you relied on getting them through this package.
+- Unused dependencies `six` and `pyyaml`. Install them directly if you relied on getting them
+  through this package.
 
 ## 0.0.8
 

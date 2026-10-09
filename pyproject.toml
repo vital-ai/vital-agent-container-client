@@ -21,6 +21,8 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "vital-ai-vitalsigns>=0.1.55",
+    "vital-ai-domain>=0.1.9",
     "websockets>=14.0",
     "httpx>=0.28.0",
 ]
