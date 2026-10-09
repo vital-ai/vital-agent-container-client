@@ -44,6 +44,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_REQUEST_TIMEOUT = 630.0
 # For interrupt() and close(): the server answers these at once
 DEFAULT_CONTROL_TIMEOUT = 10.0
+# websockets.connect() options used unless overridden. proxy=None: this client talks to
+# internal services, so it ignores proxy environment variables (websockets' default
+# proxy=True reads them)
+DEFAULT_CONNECT_OPTIONS: Dict[str, Any] = {"proxy": None, "open_timeout": 10.0}
+# Set by the client itself
+_RESERVED_CONNECT_OPTIONS = ("uri", "subprotocols")
 
 JwtMode = Literal["header", "payload"]
 InterruptOutcome = Literal["interrupted", "idle", "closed"]
@@ -61,6 +67,12 @@ def websocket_url(base_url: str, path: str = "/ws") -> str:
     if scheme is None or not parts.netloc:
         raise ValueError(f"base_url must be an http(s) or ws(s) URL, got {base_url!r}")
     return urlunsplit((scheme, parts.netloc, parts.path.rstrip("/") + path, "", ""))
+
+
+def _check_connect_options(options: Dict[str, Any]) -> None:
+    reserved = [key for key in _RESERVED_CONNECT_OPTIONS if key in options]
+    if reserved:
+        raise ValueError(f"connect options {reserved} are set by the client")
 
 
 def _new_uri() -> str:
@@ -101,6 +113,7 @@ class VitalAgentContainerClient:
         jwt_token: Optional[str] = None,
         jwt_auth_token: Optional[str] = None,
         jwt_mode: JwtMode = "header",
+        connect_options: Optional[Dict[str, Any]] = None,
     ):
         if jwt_mode not in ("header", "payload"):
             raise ValueError(
@@ -111,12 +124,14 @@ class VitalAgentContainerClient:
         if jwt_mode == "payload" and not (jwt_token or jwt_auth_token):
             raise ValueError("payload mode needs jwt_token and/or jwt_auth_token")
         websocket_url(base_url)  # validate early
+        _check_connect_options(connect_options or {})
 
         self.base_url = base_url
         self.handler = handler
         self.jwt_token = jwt_token
         self.jwt_auth_token = jwt_auth_token
         self.jwt_mode = jwt_mode
+        self.connect_options = dict(connect_options or {})
 
         self._ws: Optional[ClientConnection] = None
         self._reader: Optional[asyncio.Task[None]] = None
@@ -145,8 +160,14 @@ class VitalAgentContainerClient:
         """How the last connection ended, once it has."""
         return self._close_result
 
-    async def connect(self, path: str = "/ws", *, open_timeout: float = 10.0) -> None:
+    async def connect(self, path: str = "/ws", **connect_options: Any) -> None:
         """Open the connection and check that the server speaks ``vital-agent.v2``.
+
+        ``connect_options`` are passed to ``websockets.connect`` (e.g. ``proxy``,
+        ``max_size``, ``open_timeout``, ``ping_interval``, ``ssl``), over the
+        constructor's ``connect_options`` and ``DEFAULT_CONNECT_OPTIONS``
+        (``proxy=None``, ``open_timeout=10``). ``additional_headers`` are sent alongside
+        the JWT header. ``subprotocols`` is set by the client.
 
         Raises AuthenticationError if the handshake is rejected with HTTP 401/403 (JWT
         header mode reports a missing or invalid token that way), and
@@ -154,8 +175,10 @@ class VitalAgentContainerClient:
         """
         if self.is_open:
             raise RuntimeError("already connected")
+        _check_connect_options(connect_options)
+        options = {**DEFAULT_CONNECT_OPTIONS, **self.connect_options, **connect_options}
         url = websocket_url(self.base_url, path)
-        headers = {}
+        headers = dict(options.pop("additional_headers", None) or {})
         if self.jwt_mode == "header" and self.jwt_token:
             headers["authorization"] = self.jwt_token
         try:
@@ -163,7 +186,7 @@ class VitalAgentContainerClient:
                 url,
                 additional_headers=headers,
                 subprotocols=[Subprotocol(SUBPROTOCOL)],
-                open_timeout=open_timeout,
+                **options,
             )
         except InvalidStatus as e:
             status = e.response.status_code

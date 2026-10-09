@@ -124,6 +124,110 @@ async def test_handshake_rejection_is_an_authentication_error(server, handler, s
         await client.connect()
 
 
+@pytest.fixture
+def connect_calls(monkeypatch):
+    """Record the options the client passes to websockets.connect."""
+    from vital_agent_container_client import vital_agent_container_client as module
+
+    calls = []
+    real_connect = module.connect
+
+    def recording_connect(uri, **kwargs):
+        calls.append(kwargs)
+        return real_connect(uri, **kwargs)
+
+    monkeypatch.setattr(module, "connect", recording_connect)
+    return calls
+
+
+async def test_connect_defaults_ignore_proxy_environment(
+    server, handler, connect_calls
+):
+    url = await server.start(lambda peer: asyncio.sleep(0))
+    client = await connected(url, handler)
+    assert connect_calls[0]["proxy"] is None
+    assert connect_calls[0]["open_timeout"] == 10.0
+    await client.disconnect()
+
+
+async def test_connect_works_with_a_dead_proxy_in_the_environment(
+    server, handler, monkeypatch
+):
+    for var in ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy"):
+        monkeypatch.setenv(var, "http://127.0.0.1:9")
+    for var in ("no_proxy", "NO_PROXY"):
+        monkeypatch.delenv(var, raising=False)
+    url = await server.start(lambda peer: asyncio.sleep(0))
+
+    client = await connected(url, handler)  # proxy=None by default
+    await client.disconnect()
+
+    with_env_proxy = VitalAgentContainerClient(
+        base_url=url, handler=handler, connect_options={"proxy": True}
+    )
+    with pytest.raises(OSError):
+        await with_env_proxy.connect(open_timeout=2)
+
+
+async def test_connect_options_precedence_and_headers(server, handler, connect_calls):
+    url = await server.start(lambda peer: asyncio.sleep(0))
+    client = VitalAgentContainerClient(
+        base_url=url,
+        handler=handler,
+        jwt_token="tok",
+        connect_options={"ping_interval": 5, "open_timeout": 3},
+    )
+    await client.connect(
+        open_timeout=4, additional_headers={"x-request-source": "test"}
+    )
+    options = connect_calls[0]
+    assert (options["ping_interval"], options["open_timeout"]) == (5, 4)
+    assert options["proxy"] is None
+    assert server.request_headers["x-request-source"] == "test"
+    assert server.request_headers["authorization"] == "tok"
+    await client.disconnect()
+
+
+def test_reserved_connect_options_are_refused(handler):
+    with pytest.raises(ValueError):
+        VitalAgentContainerClient(
+            base_url="http://h", handler=handler, connect_options={"subprotocols": []}
+        )
+
+
+async def test_reserved_connect_options_are_refused_on_connect(handler):
+    client = VitalAgentContainerClient(base_url="http://h", handler=handler)
+    with pytest.raises(ValueError):
+        await client.connect(subprotocols=[])
+
+
+async def test_max_size_is_configurable(server, handler):
+    big = [{"type": "reply", "text": "x" * (1536 * 1024)}]  # 1.5 MiB
+
+    async def script(peer):
+        request = await peer.recv()
+        await peer.send(big)
+        await peer.status(STATUS_DONE, uri_of(request))
+
+    url = await server.start(script)
+    client = await connected(url, handler, connect_options={"max_size": 4 * 2**20})
+    assert (await client.request(MESSAGE, timeout=5)).status == "done"
+    assert handler.messages == [big]
+    await client.disconnect()
+
+
+async def test_default_max_size_rejects_oversized_frames(server, handler):
+    async def script(peer):
+        await peer.recv()
+        await peer.send([{"text": "x" * (1536 * 1024)}])
+
+    url = await server.start(script)
+    client = await connected(url, handler)
+    result = await client.request(MESSAGE, timeout=5)
+    assert result.status == "closed" and not result.ok
+    assert handler.messages == []
+
+
 # ── Interactions ─────────────────────────────────────────────────
 
 
@@ -609,4 +713,23 @@ async def test_payload_mode_keeps_a_caller_jwt(server, handler):
     client = await connected(url, handler, jwt_mode="payload", jwt_token="t")
     await client.request([{JWT_PROPERTY: "caller"}], timeout=5)
     assert server.received[0][0][JWT_PROPERTY] == "caller"
+    await client.disconnect()
+
+
+async def test_header_mode_passes_a_caller_jwt_through(server, handler):
+    """Header mode: a caller's own hasJwtJSON (e.g. a user token) is sent unchanged."""
+    user_jwt = json.dumps({"jwt_auth_token": "user-token"})
+    url = await server.start(lambda peer: answer_one(peer))
+    client = await connected(url, handler, jwt_token="transport")
+    await client.request([{"type": "test", JWT_PROPERTY: user_jwt}], timeout=5)
+    assert server.received[0][0][JWT_PROPERTY] == user_jwt
+    assert server.request_headers["authorization"] == "transport"
+    await client.disconnect()
+
+
+async def test_header_mode_adds_no_payload_jwt(server, handler):
+    url = await server.start(lambda peer: answer_one(peer))
+    client = await connected(url, handler, jwt_token="transport")
+    await client.request(MESSAGE, timeout=5)
+    assert JWT_PROPERTY not in server.received[0][0]
     await client.disconnect()

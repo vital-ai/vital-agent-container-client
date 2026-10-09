@@ -120,6 +120,25 @@ JWT enforcement on the server has two modes:
   message, including the `interrupt` and `close` intents. A message without a valid token
   closes the connection with 4001.
 
+A `hasJwtJSON` that the caller sets on the first object is always sent unchanged. In header
+mode this is supported for passing another token (for example the end user's) to the agent
+alongside the connection's header token; the client adds `hasJwtJSON` itself only in
+payload mode, and only when the caller hasn't set one.
+
+**Connection options.** `connect()` passes keyword arguments to `websockets.connect`, over
+`connect_options` given to the constructor (which `async with` uses):
+
+```python
+client = VitalAgentContainerClient(
+    base_url=url, handler=handler, connect_options={"max_size": 16 * 2**20}
+)
+```
+
+Defaults: `proxy=None` (proxy environment variables are ignored; this client talks to
+internal services; pass `proxy=True` to use them) and `open_timeout=10`. `max_size` is the
+largest message the client accepts (websockets' default is 1 MiB). `additional_headers` are
+sent alongside the JWT header; `subprotocols` is set by the client.
+
 ## Message handler
 
 Subclass `AIMPMessageHandlerInf`:
@@ -135,18 +154,32 @@ Subclass `AIMPMessageHandlerInf`:
   none of the above), as the raw text. The client also logs these at WARNING.
 
 Callbacks run on the client's receive loop, one at a time and in order, and all callbacks
-for an interaction finish before its `request()` returns. **Keep them fast**: while a
-callback runs the client doesn't read, and a server that can't send for 5s closes the
-connection with 1008. Exceptions are logged and recorded as `result.handler_error`; they
-don't stop the loop.
+for an interaction finish before its `request()` returns. Exceptions are logged and recorded
+as `result.handler_error`; they don't stop the loop.
+
+**Callbacks must not block.** The client waits for each callback before it reads the next
+frame. While a callback runs, nothing is read, so the server's sends back up. If the server
+can't send its next control message (such as `done`) within 5 seconds, it closes the
+connection with 1008 `Client not reading`. This is most likely with a large reply (many
+`aimp_chunk` frames) and a callback that does slow work per frame. Keep callbacks to
+collecting or queueing data, and do parsing, storage or network calls after `request()`
+returns, or in a separate task fed by a queue. Never call blocking (non-async) code in a
+callback.
 
 ## Timeouts
 
+**A client timeout cancels the agent's work.** When `request()` times out, the client
+interrupts the request (or, with `close_on_timeout=True`, disconnects), and either way the
+server cancels the running handler. So the timeout must be longer than the longest
+legitimate run of that request, not just longer than a typical one: slow but healthy work
+is cut off otherwise.
+
 - `request(timeout=630)` by default: a little above the server's default task deadline
-  (`WS_TASK_TIMEOUT_SECONDS`, 600s), so the server's 4008 normally arrives first. Set it a
-  little above the agent's own deadline.
-- On timeout the client interrupts the handler and the session stays usable
-  (`timed_out`). With `close_on_timeout=True` it disconnects instead.
+  (`WS_TASK_TIMEOUT_SECONDS`, 600s), so the server's 4008 normally arrives first. Lower it
+  per request only when you know the agent's worst case for that request; if the agent
+  enforces its own deadline, stay above it so the agent can report the timeout itself.
+- On timeout the result is `timed_out` and the session stays usable (it's closed with
+  `close_on_timeout=True`).
 - The server also closes idle connections (no handler running) after
   `WS_IDLE_TIMEOUT_SECONDS` (300s by default) with 1000.
 - Keep a client timeout: the server's deadline can't stop an agent stuck in blocking

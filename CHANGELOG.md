@@ -22,6 +22,9 @@ Pin the client and the server versions and upgrade them together.
 - Optional handler hooks `receive_control` and `receive_other` (logged at WARNING).
 - `{"aimp_chunk": ...}` objects (parts of a large reply) are delivered to
   `receive_message` and counted in `messages_received`, like AIMP lists.
+- `connect_options` (constructor) and `connect(**options)`: passed to `websockets.connect`
+  (e.g. `max_size`, `proxy`, `ping_interval`). Default `proxy=None`: proxy environment
+  variables are ignored unless `proxy=True` is passed.
 - `websocket_url()`; `py.typed`.
 
 ### Changed
