@@ -14,7 +14,7 @@ async def main():
 
     handler = LocalMessageHandler()
 
-    client = VitalAgentContainerClient("http://localhost:6006", handler)
+    client = VitalAgentContainerClient(base_url="http://localhost:6006", handler=handler)
 
     health = await client.check_health()
     print("Health:", health)

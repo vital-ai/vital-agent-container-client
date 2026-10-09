@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include setup.py
+recursive-include vital_agent_container_client *.py
+exclude test/*
+prune test
+exclude MANIFEST.in

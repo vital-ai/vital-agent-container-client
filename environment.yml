@@ -1,0 +1,17 @@
+name: vital-agent-container-client
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - setuptools
+  - wheel>=0.43.0
+  - pyyaml
+  - six
+  - pip:
+    - vital-ai-vitalsigns>=0.1.32
+    - vital-ai-domain>=0.1.7
+    - websockets
+    - httpx
+    - twine

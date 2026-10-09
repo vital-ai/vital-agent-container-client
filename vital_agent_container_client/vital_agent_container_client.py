@@ -5,11 +5,11 @@ import json
 from vital_agent_container_client.aimp_message_handler_inf import AIMPMessageHandlerInf
 import logging
 
-
 class VitalAgentContainerClient:
-    def __init__(self, base_url, handler: AIMPMessageHandlerInf):
+    def __init__(self, *, base_url, handler: AIMPMessageHandlerInf, jwt_token=None):
         self.base_url = base_url
         self.handler = handler
+        self.jwt_token = jwt_token
         self.websocket = None
 
     async def check_health(self):
@@ -19,7 +19,14 @@ class VitalAgentContainerClient:
             return response.json()
 
     async def open_websocket(self, path="/ws"):
-        self.websocket = await websockets.connect(f"{self.base_url.replace('http', 'ws')}{path}")
+        ws_url = f"{self.base_url.replace('http', 'ws')}{path}"
+        
+        # Prepare headers for JWT authentication if token is provided
+        headers = {}
+        if self.jwt_token:
+            headers["authorization"] = self.jwt_token
+        
+        self.websocket = await websockets.connect(ws_url, additional_headers=headers)
 
     async def close_websocket(self):
         if self.websocket:
@@ -41,7 +48,6 @@ class VitalAgentContainerClient:
         try:
             await asyncio.wait_for(asyncio.gather(self.receive_messages(), self.websocket.wait_closed()), timeout)
         except asyncio.TimeoutError:
-            # print(f"Timeout of {timeout} seconds reached, no close event detected.")
             logger.error(f"Websocket Timeout: {timeout} seconds.")
             # Handle the timeout scenario if needed
             pass
