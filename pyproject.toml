@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vital-agent-container-client"
+dynamic = ["version"]
+description = "Vital Agent Container Client"
+readme = "README.md"
+license = {text = "Apache License 2.0"}
+authors = [
+    {name = "Marc Hadfield", email = "marc@vital.ai"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "websockets>=14.0",
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.0.0",
+    "twine>=5.0.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/vital-ai/vital-agent-container-client"
+Repository = "https://github.com/vital-ai/vital-agent-container-client"
+Issues = "https://github.com/vital-ai/vital-agent-container-client/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "vital_agent_container_client.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["vital_agent_container_client*"]
+
+[tool.setuptools.package-data]
+"vital_agent_container_client" = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["vital_agent_container_client"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+strict_equality = true
+files = ["vital_agent_container_client"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["test"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: end-to-end tests against the real agent container SDK (skipped unless it is importable)",
+]
+
+[tool.coverage.run]
+source = ["vital_agent_container_client"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+]

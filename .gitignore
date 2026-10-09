@@ -1,7 +1,20 @@
-.idea/*
-build/*
-dist/*
-*.egg-info/*
-**/__pycache__/*
+.idea/
+.vscode/
+.DS_Store
+.env
+.venv/
+
+build/
+dist/
+dist_old/
+*.egg-info/
+**/__pycache__/
+*.pyc
+
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+app.log*
 
 /planning
