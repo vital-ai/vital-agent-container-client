@@ -124,10 +124,15 @@ JWT enforcement on the server has two modes:
 
 Subclass `AIMPMessageHandlerInf`:
 
-- `receive_message(message)` (required): an AIMP message (JSON list) from the agent.
+- `receive_message(message)` (required): a message from the agent. Usually an AIMP
+  message (a JSON list). A large reply may instead arrive as a sequence of
+  `{"aimp_chunk": ...}` objects: they're delivered here too, in order and before the
+  interaction's `done`, and each counts in `result.messages_received`. Reassembling them
+  is up to the handler.
 - `receive_control(message)` (optional): a server control message (`sdk.status` /
   `sdk.error`).
-- `receive_text(text)` (optional): any other text frame.
+- `receive_other(text)` (optional): any other frame (not JSON, or a JSON value that is
+  none of the above), as the raw text. The client also logs these at WARNING.
 
 Callbacks run on the client's receive loop, one at a time and in order, and all callbacks
 for an interaction finish before its `request()` returns. **Keep them fast**: while a

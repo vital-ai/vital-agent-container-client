@@ -19,7 +19,9 @@ Pin the client and the server versions and upgrade them together.
 - JWT payload mode (`jwt_mode="payload"`, `jwt_auth_token`): the JWT goes on every message,
   intents included.
 - `AuthenticationError` for an HTTP 401/403 handshake (JWT header mode).
-- Optional handler hooks `receive_control` and `receive_text`.
+- Optional handler hooks `receive_control` and `receive_other` (logged at WARNING).
+- `{"aimp_chunk": ...}` objects (parts of a large reply) are delivered to
+  `receive_message` and counted in `messages_received`, like AIMP lists.
 - `websocket_url()`; `py.typed`.
 
 ### Changed

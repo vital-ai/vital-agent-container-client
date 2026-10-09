@@ -120,7 +120,7 @@ class RecordingHandler(AIMPMessageHandlerInf):
     def __init__(self, fail_on: Optional[str] = None):
         self.messages: List[Any] = []
         self.controls: List[Any] = []
-        self.texts: List[str] = []
+        self.others: List[str] = []
         self.fail_on = fail_on
 
     async def receive_message(self, message: List[Any]) -> None:
@@ -131,8 +131,8 @@ class RecordingHandler(AIMPMessageHandlerInf):
     async def receive_control(self, message: Any) -> None:
         self.controls.append(message)
 
-    async def receive_text(self, text: str) -> None:
-        self.texts.append(text)
+    async def receive_other(self, text: str) -> None:
+        self.others.append(text)
 
 
 @pytest.fixture

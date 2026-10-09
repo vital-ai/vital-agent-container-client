@@ -67,6 +67,11 @@ class AgentHandler(ServiceHandler):
             except asyncio.CancelledError:
                 await asyncio.sleep(0.5)  # finishes within the server's unwind grace
                 raise
+        elif mode == "chunked":
+            for i in range(request.get("chunks", 3)):
+                await connection.send_json(
+                    {"aimp_chunk": {"seq": i, "data": "x" * 1000}}
+                )
         elif mode == "raise":
             raise RuntimeError("handler failed")
         elif mode == "close":
@@ -146,6 +151,16 @@ async def test_health_and_multi_turn_session(service):
         assert (second.status, second.messages_received) == ("done", 1)
     assert client.close_result.is_normal
     assert client.close_result.reason == "Closed by client request"
+
+
+async def test_aimp_chunks_reach_receive_message(service):
+    handler = RecordingHandler()
+    url = await service()
+    async with VitalAgentContainerClient(base_url=url, handler=handler) as client:
+        result = await client.request(msg("chunked", chunks=4), timeout=5)
+    assert result.ok and result.messages_received == 4
+    assert [m["aimp_chunk"]["seq"] for m in handler.messages] == [0, 1, 2, 3]
+    assert handler.others == []
 
 
 async def test_one_shot_close_after(service):

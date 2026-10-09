@@ -14,6 +14,7 @@ from vital_agent_container_client import (
     websocket_url,
 )
 from vital_agent_container_client.protocol import (
+    AIMP_CHUNK_KEY,
     ERROR_BUSY,
     ERROR_CANCELLING,
     INTENT_CLOSE,
@@ -192,7 +193,7 @@ async def test_done_for_another_request_is_ignored(server, handler):
     await client.disconnect()
 
 
-async def test_control_and_text_frames_are_routed(server, handler):
+async def test_control_and_other_frames_are_routed(server, handler, caplog):
     async def script(peer):
         request = await peer.recv()
         await peer.send("not json")
@@ -207,8 +208,33 @@ async def test_control_and_text_frames_are_routed(server, handler):
 
     assert result.status == "done" and result.messages_received == 1
     assert handler.messages == [reply("ok")]
-    assert handler.texts == ["not json", json.dumps({"unexpected": "object"})]
+    assert handler.others == ["not json", json.dumps({"unexpected": "object"})]
     assert [c["status"] for c in handler.controls] == [STATUS_DONE]
+    unrecognised = [r for r in caplog.records if "Unrecognised frame" in r.getMessage()]
+    assert [r.levelname for r in unrecognised] == ["WARNING", "WARNING"]
+    await client.disconnect()
+
+
+async def test_aimp_chunks_go_to_receive_message_and_are_counted(server, handler):
+    """A large reply split into aimp_chunk objects reaches the handler in order."""
+    chunks = [
+        {AIMP_CHUNK_KEY: {"id": "r1", "seq": i, "data": f"part{i}"}} for i in range(3)
+    ]
+
+    async def script(peer):
+        request = await peer.recv()
+        for chunk in chunks:
+            await peer.send(chunk)
+        await peer.send(reply("small"))
+        await peer.status(STATUS_DONE, uri_of(request))
+
+    url = await server.start(script)
+    client = await connected(url, handler)
+    result = await client.request(MESSAGE, timeout=5)
+
+    assert result.status == "done" and result.messages_received == 4
+    assert handler.messages == [*chunks, reply("small")]
+    assert handler.others == []
     await client.disconnect()
 
 

@@ -29,6 +29,10 @@ class CloseCode(IntEnum):
     HANDLER_TIMEOUT = 4008  # handler exceeded the server's task deadline
 
 
+# A large agent reply may arrive as a sequence of JSON objects carrying this key instead
+# of AIMP lists; they're delivered to receive_message and reassembled by the handler
+AIMP_CHUNK_KEY = "aimp_chunk"
+
 # Control messages are JSON objects; AIMP payloads are JSON lists
 CONTROL_ERROR = "sdk.error"
 CONTROL_STATUS = "sdk.status"
