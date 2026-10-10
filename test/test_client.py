@@ -26,6 +26,7 @@ from vital_agent_container_client.protocol import (
     STATUS_READY,
     SUBPROTOCOL,
     URI_PROPERTY,
+    is_control_message,
 )
 
 MESSAGE = [{"type": "test", "text": "hello"}]
@@ -297,26 +298,49 @@ async def test_done_for_another_request_is_ignored(server, handler):
     await client.disconnect()
 
 
-async def test_control_and_other_frames_are_routed(server, handler, caplog):
+async def test_frames_are_routed_by_control_type(server, handler, caplog):
+    """Only sdk.status / sdk.error objects are control messages; every other JSON value
+    is handler output for receive_message. Non-JSON text goes to receive_other."""
+    handler_output = [
+        {"agent": "object"},
+        {"type": "agent.progress", "percent": 50},  # a "type", but not a control type
+        42,
+        reply("ok"),
+    ]
+
     async def script(peer):
         request = await peer.recv()
         await peer.send("not json")
-        await peer.send({"unexpected": "object"})
         await peer.send(b"\x00binary")
-        await peer.send(reply("ok"))
+        for value in handler_output:
+            await peer.send(json.dumps(value))
         await peer.status(STATUS_DONE, uri_of(request))
 
     url = await server.start(script)
     client = await connected(url, handler)
     result = await client.request(MESSAGE, timeout=5)
 
-    assert result.status == "done" and result.messages_received == 1
-    assert handler.messages == [reply("ok")]
-    assert handler.others == ["not json", json.dumps({"unexpected": "object"})]
+    assert result.status == "done" and result.messages_received == 4
+    assert handler.messages == handler_output
+    assert handler.others == ["not json"]
     assert [c["status"] for c in handler.controls] == [STATUS_DONE]
-    unrecognised = [r for r in caplog.records if "Unrecognised frame" in r.getMessage()]
-    assert [r.levelname for r in unrecognised] == ["WARNING", "WARNING"]
+    non_json = [r for r in caplog.records if "Non-JSON frame" in r.getMessage()]
+    assert [r.levelname for r in non_json] == ["WARNING"]
     await client.disconnect()
+
+
+def test_is_control_message():
+    assert is_control_message({"type": "sdk.status", "status": "done"})
+    assert is_control_message({"type": "sdk.error", "error": "busy"})
+    for value in (
+        [],
+        [{"type": "sdk.status"}],
+        {"aimp_chunk": {}},
+        {"type": "x"},
+        "s",
+        1,
+    ):
+        assert not is_control_message(value)
 
 
 async def test_aimp_chunks_go_to_receive_message_and_are_counted(server, handler):

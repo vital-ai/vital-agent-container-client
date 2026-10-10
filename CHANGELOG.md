@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.1 (unreleased)
+
+### Changed
+
+- Frames are classified the way SDK 0.2.0 defines them: only a JSON object whose `type` is
+  `sdk.status` or `sdk.error` is a control message (`protocol.is_control_message()`, new);
+  every other JSON value is handler output and goes to `receive_message`, counted in
+  `messages_received`. 0.2.0 delivered only AIMP lists and `aimp_chunk` objects there and
+  sent other JSON objects to `receive_other`.
+- `receive_other` now only receives text frames that aren't JSON (logged at WARNING).
+- `receive_message` is typed `Any` (it can receive any JSON value).
+
+### Added
+
+- `protocol.CONTROL_TYPES` and `protocol.is_control_message()`, mirroring the SDK.
+
 ## 0.2.0 (2026-10-10)
 
 **Breaking release.** The client now speaks the agent container's WebSocket protocol v2

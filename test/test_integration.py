@@ -20,6 +20,7 @@ from vital_agent_container_client import (
     CloseCode,
     VitalAgentContainerClient,
 )
+from vital_agent_container_client.protocol import is_control_message
 
 pytestmark = pytest.mark.integration
 
@@ -67,6 +68,9 @@ class AgentHandler(ServiceHandler):
             except asyncio.CancelledError:
                 await asyncio.sleep(0.5)  # finishes within the server's unwind grace
                 raise
+        elif mode == "objects":
+            await connection.send_json({"type": "agent.progress", "percent": 50})
+            await connection.send_json({"result": "custom"})
         elif mode == "chunked":
             for i in range(request.get("chunks", 3)):
                 await connection.send_json(
@@ -161,6 +165,34 @@ async def test_aimp_chunks_reach_receive_message(service):
     assert result.ok and result.messages_received == 4
     assert [m["aimp_chunk"]["seq"] for m in handler.messages] == [0, 1, 2, 3]
     assert handler.others == []
+
+
+async def test_handler_defined_objects_reach_receive_message(service):
+    handler = RecordingHandler()
+    url = await service()
+    async with VitalAgentContainerClient(base_url=url, handler=handler) as client:
+        result = await client.request(msg("objects"), timeout=5)
+    assert result.ok and result.messages_received == 2
+    assert handler.messages == [
+        {"type": "agent.progress", "percent": 50},
+        {"result": "custom"},
+    ]
+    assert handler.others == []
+
+
+def test_control_classification_matches_the_sdk():
+    if not hasattr(sdk_protocol, "is_control_message"):
+        pytest.skip("SDK predates is_control_message")
+    samples = [
+        {"type": "sdk.status", "status": "done"},
+        {"type": "sdk.error", "error": "busy"},
+        {"type": "agent.progress"},
+        {"aimp_chunk": {}},
+        [{"type": "sdk.status"}],
+        "text",
+    ]
+    for sample in samples:
+        assert is_control_message(sample) == sdk_protocol.is_control_message(sample)
 
 
 async def test_one_shot_close_after(service):

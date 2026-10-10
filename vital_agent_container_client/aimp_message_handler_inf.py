@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Union
+from typing import Any, Dict
 
 
 class AIMPMessageHandlerInf(ABC):
@@ -13,15 +13,17 @@ class AIMPMessageHandlerInf(ABC):
     """
 
     @abstractmethod
-    async def receive_message(self, message: Union[List[Any], Dict[str, Any]]) -> None:
-        """A message from the agent: an AIMP message (a JSON list), or one part of a
-        large reply split into ``{"aimp_chunk": ...}`` objects. Chunks arrive in order,
-        before the interaction's ``done``; reassembling them is up to the handler."""
+    async def receive_message(self, message: Any) -> None:
+        """Handler output from the agent: any JSON value that isn't a control message.
+
+        Usually an AIMP message (a JSON list). A large reply may arrive as a sequence of
+        ``{"aimp_chunk": ...}`` objects, in order and before the interaction's ``done``;
+        reassembling them is up to the handler. Agents may also send other JSON objects
+        of their own."""
 
     async def receive_control(self, message: Dict[str, Any]) -> None:
         """Optional: a server control message (``sdk.status`` / ``sdk.error``)."""
 
     async def receive_other(self, text: str) -> None:
-        """Optional: any other frame (not JSON, or a JSON value that is neither an AIMP
-        list, an ``aimp_chunk`` object nor a control message), as the raw text. The
-        client logs these at WARNING."""
+        """Optional: a text frame that isn't JSON, as the raw text (logged at
+        WARNING)."""

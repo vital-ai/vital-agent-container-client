@@ -18,8 +18,6 @@ from vital_agent_container_client.exceptions import (
     ProtocolMismatchError,
 )
 from vital_agent_container_client.protocol import (
-    AIMP_CHUNK_KEY,
-    CONTROL_ERROR,
     CONTROL_STATUS,
     ERROR_BUSY,
     ERROR_CANCELLING,
@@ -34,6 +32,7 @@ from vital_agent_container_client.protocol import (
     SUBPROTOCOL,
     URI_PROPERTY,
     CloseCode,
+    is_control_message,
 )
 from vital_agent_container_client.results import CloseResult, InteractionResult
 
@@ -485,26 +484,21 @@ class VitalAgentContainerClient:
         except ValueError:
             await self._other(raw, interaction)
             return
-        if isinstance(data, list) or (
-            isinstance(data, dict) and AIMP_CHUNK_KEY in data
-        ):
-            if interaction is not None:
-                interaction.messages_received += 1
-            await self._call(self.handler.receive_message, data, interaction)
-        elif isinstance(data, dict) and data.get("type") in (
-            CONTROL_STATUS,
-            CONTROL_ERROR,
-        ):
+        if is_control_message(data):
             # Handler first, so its callbacks for an interaction finish before request()
             # returns
             await self._call(self.handler.receive_control, data, interaction)
             self._on_control(data)
         else:
-            await self._other(raw, interaction)
+            # Everything else is handler output: AIMP lists, aimp_chunk objects and any
+            # other JSON value the agent sends
+            if interaction is not None:
+                interaction.messages_received += 1
+            await self._call(self.handler.receive_message, data, interaction)
 
     async def _other(self, raw: str, interaction: Optional[_Interaction]) -> None:
         preview = raw if len(raw) <= 200 else raw[:200] + "..."
-        logger.warning(f"Unrecognised frame passed to receive_other: {preview}")
+        logger.warning(f"Non-JSON frame passed to receive_other: {preview}")
         await self._call(self.handler.receive_other, raw, interaction)
 
     async def _call(

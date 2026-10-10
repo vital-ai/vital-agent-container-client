@@ -143,15 +143,16 @@ sent alongside the JWT header; `subprotocols` is set by the client.
 
 Subclass `AIMPMessageHandlerInf`:
 
-- `receive_message(message)` (required): a message from the agent. Usually an AIMP
-  message (a JSON list). A large reply may instead arrive as a sequence of
-  `{"aimp_chunk": ...}` objects: they're delivered here too, in order and before the
-  interaction's `done`, and each counts in `result.messages_received`. Reassembling them
-  is up to the handler.
-- `receive_control(message)` (optional): a server control message (`sdk.status` /
-  `sdk.error`).
-- `receive_other(text)` (optional): any other frame (not JSON, or a JSON value that is
-  none of the above), as the raw text. The client also logs these at WARNING.
+- `receive_message(message)` (required): handler output from the agent, i.e. every JSON
+  value that isn't a control message. Usually an AIMP message (a JSON list). A large reply
+  may arrive as a sequence of `{"aimp_chunk": ...}` objects, in order and before the
+  interaction's `done`; reassembling them is up to the handler. Agents may also send JSON
+  objects of their own. Each counts in `result.messages_received`.
+- `receive_control(message)` (optional): a server control message, i.e. a JSON object whose
+  `type` is `sdk.status` or `sdk.error` (`protocol.is_control_message()`, the same rule as
+  the SDK).
+- `receive_other(text)` (optional): a text frame that isn't JSON, as the raw text. The
+  client also logs these at WARNING.
 
 Callbacks run on the client's receive loop, one at a time and in order, and all callbacks
 for an interaction finish before its `request()` returns. Exceptions are logged and recorded

@@ -1,4 +1,4 @@
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from vital_agent_container_client.aimp_message_handler_inf import AIMPMessageHandlerInf
 from vital_agent_container_client.exceptions import (

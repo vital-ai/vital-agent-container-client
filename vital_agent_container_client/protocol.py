@@ -5,6 +5,7 @@ Close codes are the contract; reason strings are informational.
 """
 
 from enum import IntEnum
+from typing import Any
 
 # Subprotocol offered when connecting; the server must select it
 SUBPROTOCOL = "vital-agent.v2"
@@ -29,13 +30,17 @@ class CloseCode(IntEnum):
     HANDLER_TIMEOUT = 4008  # handler exceeded the server's task deadline
 
 
-# A large agent reply may arrive as a sequence of JSON objects carrying this key instead
-# of AIMP lists; they're delivered to receive_message and reassembled by the handler
-AIMP_CHUNK_KEY = "aimp_chunk"
-
-# Control messages are JSON objects; AIMP payloads are JSON lists
+# A control message is a JSON object whose "type" is one of CONTROL_TYPES. Everything
+# else the server sends is handler output: AIMP message lists, and handler-defined JSON
+# values such as chunk frames ({"aimp_chunk": ...}). Classify by "type", never by "is it
+# an object".
 CONTROL_ERROR = "sdk.error"
 CONTROL_STATUS = "sdk.status"
+CONTROL_TYPES = (CONTROL_STATUS, CONTROL_ERROR)
+
+# A large agent reply may arrive as a sequence of JSON objects carrying this key; like
+# all handler output they go to receive_message, and the handler reassembles them
+AIMP_CHUNK_KEY = "aimp_chunk"
 
 ERROR_BUSY = "busy"  # a handler is running; wait for its done / interrupted
 ERROR_CANCELLING = "cancelling"  # interrupted handlers still running; wait for ready
@@ -43,3 +48,8 @@ STATUS_DONE = "done"
 STATUS_READY = "ready"
 STATUS_INTERRUPTED = "interrupted"
 STATUS_IDLE = "idle"
+
+
+def is_control_message(obj: Any) -> bool:
+    """True for container control messages; False for handler output."""
+    return isinstance(obj, dict) and obj.get("type") in CONTROL_TYPES
