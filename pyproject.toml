@@ -39,6 +39,10 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.0.0",
 ]
+# The agent container SDK speaking the same protocol version, for test/test_integration.py
+integration = [
+    "vital-agent-container-sdk==0.2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/vital-ai/vital-agent-container-client"

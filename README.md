@@ -190,14 +190,15 @@ is cut off otherwise.
 ```bash
 make install-dev          # or: conda env create -f environment.yml
 make test                 # unit tests; integration tests skip without the SDK
-make test-integration SDK_PATH=/path/to/vital-agent-container-python
+pip install -e ".[dev,integration]"   # SDK 0.2.0 for the integration tests
+make test-integration     # or, against a checkout: make test-integration SDK_PATH=/path/to/sdk
 make lint                 # flake8, mypy
 make format               # black, isort
 make check-dist           # build and twine check
 ```
 
-The integration tests run the real SDK (contract v2) under uvicorn. Point `SDK_PATH` at a
-checkout of `vital-agent-container-python`, or install SDK 0.2.0+.
+The integration tests run the real SDK (contract v2) under uvicorn, from the `integration` extra
+or from a checkout of `vital-agent-container-python` given as `SDK_PATH`.
 
 `examples/smoke_client.py` is a manual check against a running container.
 

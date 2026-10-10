@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-10-10)
 
 **Breaking release.** The client now speaks the agent container's WebSocket protocol v2
 (subprotocol `vital-agent.v2`) and requires **vital-agent-container-sdk 0.2.0** or later on
