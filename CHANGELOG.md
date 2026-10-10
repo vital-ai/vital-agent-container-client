@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.2.0 (unreleased)
 
 **Breaking release.** The client now speaks the agent container's WebSocket protocol v2
 (subprotocol `vital-agent.v2`) and requires **vital-agent-container-sdk 0.2.0** or later on
@@ -45,7 +45,7 @@ Pin the client and the server versions and upgrade them together.
 - `open_websocket()`, `close_websocket()`, `send_message()`, `receive_messages()`,
   `handle_close()` and `wait_for_close_or_timeout()`. Migration:
 
-  | 0.0.x | 0.1.0 |
+  | 0.0.x | 0.2.0 |
   |---|---|
   | `open_websocket()` | `connect()` |
   | `send_message(m)` + `wait_for_close_or_timeout(t)` | `request(m, timeout=t, close_after=True)` |
